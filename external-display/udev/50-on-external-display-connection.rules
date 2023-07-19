@@ -1,0 +1,1 @@
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", RUN+="/home/dev/.local/bin/on-external-display-connection.sh"
