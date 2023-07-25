@@ -1,1 +1,1 @@
-SUBSYSTEM=="drm", KERNEL=="card[0-9]*", RUN+="{{ home }}/.local/bin/on-external-display-connection.sh"
+ACTION=="change", KERNEL=="card0", SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ENV{HOTPLUG}=="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="external-display@$env{SEQNUM}.service"

@@ -3,7 +3,7 @@
 set -eu
 
 usage() {
-  echo "It adds system-wide font scale on external 4K monitor connection."
+  echo "It adds system-wide UI font scale on external 4K monitor connection."
   echo "Usage: $(basename "$0") OPTION"
   printf "%-10s %s\n" '-h' 'this help'
   printf "%-10s %s\n" '-i' 'installs the rules'
@@ -24,8 +24,10 @@ setup_vars() {
   HOME_DIR=$(getent passwd "$REAL_USER" | cut -d: -f6)
   CURRENT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd) # see https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
   RULES_DIR="$CURRENT_DIR/udev"
+  SERVICE_DIR="$CURRENT_DIR/systemd"
   RULES_SCRIPT_TEMPLATE="on-external-display-connection.sh.template"
   RULES_TEMPLATE="on-external-display-connection.rules.template"
+  SERVICE_TEMPLATE="external-display@.service.template"
   SCRIPT_INSTALL_DIR="$HOME_DIR/.local/bin"
   RULES_INSTALL_DIR="/etc/udev/rules.d"
 }
@@ -39,30 +41,46 @@ install() {
     exit 0
   fi
 
-  # add a rule for (disc)connection
-  RULES_FILE_NAME=$(create_rules_file)
-  ln -s "$RULES_DIR/$RULES_FILE_NAME" "$RULES_INSTALL_DIR"
+  install_rules && echo 'Added udev rule.'
+  install_script && echo 'Added executable script.'
+  install_service && echo 'Added systemd service.'
 
-  # add a script that the rule will execute
+  echo 'Autoscaling installed. Try to connect the display!'
+}
+
+# adds a udev rule for display (dis-)connection
+install_rules() {
+  ln -s "$RULES_DIR/$(create_rules_file)" "$RULES_INSTALL_DIR"
+}
+
+# adds a script that the rule will execute
+install_script() {
+  local SCRIPT_FILE_NAME
   SCRIPT_FILE_NAME=$(create_script_file)
   # change ownership back to real user for consistency
   chown "$REAL_USER":"$REAL_USER" "$RULES_DIR/$SCRIPT_FILE_NAME"
   ln -s "$RULES_DIR/$SCRIPT_FILE_NAME" "$SCRIPT_INSTALL_DIR"
-
-  echo 'Autoscaling rules installed. Try to connect the display!'
 }
 
+# adds a systemd service invokable by udev event
+install_service() {
+  systemctl link "$SERVICE_DIR/$(create_service_file)"
+}
 # converts on-external-display-connection.rules.template into 50-on-external-display-connection.rules
 get_file_name_from_template() {
   echo "${1%.*}"
 }
 
 get_rules_file_name() {
-  printf '50-%s' "$(get_file_name_from_template $RULES_TEMPLATE)"
+  printf '150-%s' "$(get_file_name_from_template $RULES_TEMPLATE)"
 }
 
 get_script_file_name() {
   get_file_name_from_template $RULES_SCRIPT_TEMPLATE
+}
+
+get_service_file_name() {
+  get_file_name_from_template $SERVICE_TEMPLATE
 }
 
 create_script_file() {
@@ -74,6 +92,16 @@ create_script_file() {
   chmod +x "$RULES_DIR/$SCRIPT_FILE_NAME"
 
   echo "$SCRIPT_FILE_NAME"
+}
+
+create_service_file() {
+  local SERVICE_FILE_NAME
+  SERVICE_FILE_NAME=$(get_service_file_name)
+
+  # replace placeholder with actual path and create the file
+  sed -e "s|{{ real_user }}|$REAL_USER|" -e "s|{{ script_path }}|$SCRIPT_INSTALL_DIR/$(get_script_file_name)|" "$SERVICE_DIR/$SERVICE_TEMPLATE" >"$SERVICE_DIR/$SERVICE_FILE_NAME"
+
+  echo "$SERVICE_FILE_NAME"
 }
 
 create_rules_file() {
@@ -96,7 +124,9 @@ remove() {
   SCRIPT_FILE_NAME=$(get_script_file_name)
   rm -f "$SCRIPT_INSTALL_DIR/$SCRIPT_FILE_NAME" "$RULES_DIR/$SCRIPT_FILE_NAME"
 
-  echo 'Autoscaling rules removed.'
+  systemctl disable "$(get_service_file_name)"
+
+  echo 'Autoscaling removed.'
 }
 
 reload_rules() {

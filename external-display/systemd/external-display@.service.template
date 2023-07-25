@@ -1,0 +1,7 @@
+[Unit]
+Description=Scale UI on external display connection
+
+[Service]
+Type=oneshot
+User={{ real_user }}
+ExecStart={{ script_path }}
