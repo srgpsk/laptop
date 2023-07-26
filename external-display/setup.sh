@@ -124,7 +124,10 @@ remove() {
   SCRIPT_FILE_NAME=$(get_script_file_name)
   rm -f "$SCRIPT_INSTALL_DIR/$SCRIPT_FILE_NAME" "$RULES_DIR/$SCRIPT_FILE_NAME"
 
-  systemctl disable "$(get_service_file_name)"
+  local SERVICE_FILE_NAME
+  SERVICE_FILE_NAME=$(get_service_file_name)
+  systemctl disable "$SERVICE_FILE_NAME"
+  rm -f "$SERVICE_DIR/$SERVICE_FILE_NAME"
 
   echo 'Autoscaling removed.'
 }
