@@ -190,7 +190,14 @@ require('lazy').setup({
     },
     build = ':TSUpdate',
   },
-
+ 
+  {
+    "jose-elias-alvarez/null-ls.nvim",
+    config = function()
+        require("null-ls").setup()
+    end,
+    requires = { "nvim-lua/plenary.nvim" },
+  }
   -- NOTE: Next Step on Your Neovim Journey: Add/Configure additional "plugins" for kickstart
   --       These are some example plugins that I've included in the kickstart repository.
   --       Uncomment any of the lines below to enable them.
@@ -511,5 +518,20 @@ cmp.setup {
   },
 }
 
+-- Setup null-ls
+local null_ls = require('null-ls')
+
+null_ls.setup({
+ sources = {
+        null_ls.builtins.formatting.stylua,
+        null_ls.builtins.diagnostics.eslint,
+        null_ls.builtins.completion.spell,
+        null_ls.builtins.code_actions.shellcheck,
+        null_ls.builtins.diagnostics.actionlint,
+        null_ls.builtins.diagnostics.alex,
+        null_ls.builtins.hover.dictionary,
+        null_ls.builtins.hover.printenv,
+  }
+})
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
