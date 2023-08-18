@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+##
+## Note: All mentions of "template" refer to files with .template ext and not systemd service template
+##
+
 set -eu
 
 usage() {
@@ -47,7 +51,7 @@ install() {
 
   install_rules && echo 'Added udev rule.'
   install_script && echo 'Added executable script.'
-  install_service && echo 'Added systemd service.'
+  install_services && echo 'Added systemd service.'
 
   echo 'Autoscaling installed. Try to connect the display!'
 }
@@ -66,9 +70,25 @@ install_script() {
   ln -s "$RULES_DIR/$SCRIPT_FILE_NAME" "$SCRIPT_INSTALL_DIR"
 }
 
-# adds a systemd service invokable by udev event
-install_service() {
-  systemctl link "$SERVICE_DIR/$(create_service_file)"
+# adds a2 services
+# - systemd service invokable by udev event (hotplug)
+# - a systemd service than runs on boot (boot with display already connected)
+install_services() {
+  local UDEV_SERVICE_FILE_NAME
+  UDEV_SERVICE_FILE_NAME=$(create_udev_service_file)
+
+  #  creates a "systemd service template" in a local user home dir ~/.config/systemd/user
+  systemctl --user link "$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME"
+
+  local ON_BOOT_SERVICE_FILE_NAME
+  ON_BOOT_SERVICE_FILE_NAME=$(create_on_boot_service_file)
+
+  #  creates a regular "systemd service" in a local user home dir
+  systemctl --user link "$SERVICE_DIR/$ON_BOOT_SERVICE_FILE_NAME"
+  systemctl --user enable "$ON_BOOT_SERVICE_FILE_NAME"
+
+  #  apply changes to current session
+  systemctl --user daemon-reload
 }
 # converts on-external-display-connection.rules.template into 50-on-external-display-connection.rules
 get_file_name_from_template() {
@@ -87,6 +107,15 @@ get_service_file_name() {
   get_file_name_from_template $SERVICE_TEMPLATE
 }
 
+get_on_boot_service_file_name() {
+  local DEFAULT_SERVICE_NAME
+  DEFAULT_SERVICE_NAME=$(get_service_file_name)
+  # replace @ in service template to get external-display-on-boot
+  ON_BOOT_SERVICE_FILE_NAME=${DEFAULT_SERVICE_NAME/@/-on-boot}
+
+  echo "$ON_BOOT_SERVICE_FILE_NAME"
+}
+
 create_script_file() {
   local SCRIPT_FILE_NAME
   SCRIPT_FILE_NAME=$(get_script_file_name)
@@ -98,14 +127,24 @@ create_script_file() {
   echo "$SCRIPT_FILE_NAME"
 }
 
-create_service_file() {
-  local SERVICE_FILE_NAME
-  SERVICE_FILE_NAME=$(get_service_file_name)
+create_udev_service_file() {
+  local UDEV_SERVICE_FILE_NAME
+  UDEV_SERVICE_FILE_NAME=$(get_service_file_name)
 
   # replace placeholder with actual path and create the file
-  sed -e "s|{{ real_user }}|$REAL_USER|" -e "s|{{ script_path }}|$SCRIPT_INSTALL_DIR/$(get_script_file_name)|" "$SERVICE_DIR/$SERVICE_TEMPLATE" >"$SERVICE_DIR/$SERVICE_FILE_NAME"
+  sed -e "s|{{ script_path }}|$SCRIPT_INSTALL_DIR/$(get_script_file_name)|" "$SERVICE_DIR/$SERVICE_TEMPLATE" >"$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME"
 
-  echo "$SERVICE_FILE_NAME"
+  echo "$UDEV_SERVICE_FILE_NAME"
+}
+
+create_on_boot_service_file() {
+  local ON_BOOT_SERVICE_FILE_NAME
+  ON_BOOT_SERVICE_FILE_NAME=$(get_on_boot_service_file_name)
+
+  # replace placeholder with actual path and create the file
+  sed -e "s|{{ script_path }}|$SCRIPT_INSTALL_DIR/$(get_script_file_name)|" "$SERVICE_DIR/$SERVICE_TEMPLATE" >"$SERVICE_DIR/$ON_BOOT_SERVICE_FILE_NAME"
+
+  echo "$ON_BOOT_SERVICE_FILE_NAME"
 }
 
 create_rules_file() {
@@ -120,18 +159,26 @@ create_rules_file() {
 
 # removes soft links and their sources
 remove() {
+  # rules files
   local RULES_FILE_NAME
   RULES_FILE_NAME=$(get_rules_file_name)
   rm -f "$RULES_INSTALL_DIR/$RULES_FILE_NAME" "$RULES_DIR/$RULES_FILE_NAME"
 
+  # executable scaling logic
   local SCRIPT_FILE_NAME
   SCRIPT_FILE_NAME=$(get_script_file_name)
   rm -f "$SCRIPT_INSTALL_DIR/$SCRIPT_FILE_NAME" "$RULES_DIR/$SCRIPT_FILE_NAME"
 
-  local SERVICE_FILE_NAME
-  SERVICE_FILE_NAME=$(get_service_file_name)
-  systemctl disable "$SERVICE_FILE_NAME"
-  rm -f "$SERVICE_DIR/$SERVICE_FILE_NAME"
+  # systemd services
+  local UDEV_SERVICE_FILE_NAME
+  UDEV_SERVICE_FILE_NAME=$(get_service_file_name)
+  systemctl --user disable "$UDEV_SERVICE_FILE_NAME"
+
+  local ON_BOOT_SERVICE_FILE_NAME
+  ON_BOOT_SERVICE_FILE_NAME=$(get_on_boot_service_file_name)
+  systemctl --user disable "$ON_BOOT_SERVICE_FILE_NAME"
+
+  rm -f "$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME" "$SERVICE_DIR/$ON_BOOT_SERVICE_FILE_NAME"
 
   echo 'Autoscaling removed.'
 }
