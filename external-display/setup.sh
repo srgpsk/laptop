@@ -23,13 +23,17 @@ setup_vars() {
   REAL_USER_ID=$(id -u "$REAL_USER")
   HOME_DIR=$(getent passwd "$REAL_USER" | cut -d: -f6)
   CURRENT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd) # see https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
+  # udev rules
+  RULE_PRIORITY=70
   RULES_DIR="$CURRENT_DIR/udev"
-  SERVICE_DIR="$CURRENT_DIR/systemd"
   RULES_SCRIPT_TEMPLATE="on-external-display-connection.sh.template"
   RULES_TEMPLATE="on-external-display-connection.rules.template"
-  SERVICE_TEMPLATE="external-display@.service.template"
-  SCRIPT_INSTALL_DIR="$HOME_DIR/.local/bin"
   RULES_INSTALL_DIR="/etc/udev/rules.d"
+  # systemd service
+  SERVICE_DIR="$CURRENT_DIR/systemd"
+  SERVICE_TEMPLATE="external-display@.service.template"
+  # scaling logic
+  SCRIPT_INSTALL_DIR="$HOME_DIR/.local/bin"
 }
 
 install() {
@@ -50,7 +54,7 @@ install() {
 
 # adds a udev rule for display (dis-)connection
 install_rules() {
-  ln -s "$RULES_DIR/$(create_rules_file)" "$RULES_INSTALL_DIR"
+  cp "$RULES_DIR/$(create_rules_file)" "$RULES_INSTALL_DIR"
 }
 
 # adds a script that the rule will execute
@@ -72,7 +76,7 @@ get_file_name_from_template() {
 }
 
 get_rules_file_name() {
-  printf '150-%s' "$(get_file_name_from_template $RULES_TEMPLATE)"
+  printf '%s-%s' "$RULE_PRIORITY" "$(get_file_name_from_template $RULES_TEMPLATE)"
 }
 
 get_script_file_name() {
