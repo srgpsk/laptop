@@ -4,7 +4,7 @@
 ## Note: All mentions of "template" refer to files with .template ext and not systemd service template
 ##
 
-set -eu
+set -u
 
 usage() {
   echo "It adds system-wide UI font scale on external 4K monitor connection."
