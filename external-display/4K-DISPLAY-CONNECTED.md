@@ -4,5 +4,8 @@ Subscribes to display connection (using udev) event and once an external display
 
 ## Installation
 
-`external-display/setup.sh -i` - installs the udev rules
-`external-display/setup.sh -r` - removes them
+`sudo ./external-display/setup.sh OPTION`  
+Options:  
+`-i` - installs UI scaling logic  
+`-r` - removes it  
+`-h` - this help  
