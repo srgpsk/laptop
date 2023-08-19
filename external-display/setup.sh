@@ -40,6 +40,10 @@ setup_vars() {
   SCRIPT_INSTALL_DIR="$HOME_DIR/.local/bin"
 }
 
+systemctl_run() {
+  systemctl --machine="$REAL_USER"@.host --user "$@"
+}
+
 install() {
   echo 'It adds system-wide font scale on external 4K monitor connection.'
   read -p "Are you sure you want to continue? (y/N) " -n 1 -r
@@ -58,7 +62,7 @@ install() {
 
 # adds a udev rule for display (dis-)connection
 install_rules() {
-  cp "$RULES_DIR/$(create_rules_file)" "$RULES_INSTALL_DIR"
+  sudo cp "$RULES_DIR/$(create_rules_file)" "$RULES_INSTALL_DIR"
 }
 
 # adds a script that the rule will execute
@@ -78,17 +82,17 @@ install_services() {
   UDEV_SERVICE_FILE_NAME=$(create_udev_service_file)
 
   #  creates a "systemd service template" in a local user home dir ~/.config/systemd/user
-  systemctl --user link "$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME"
+  systemctl_run link "$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME"
 
   local ON_BOOT_SERVICE_FILE_NAME
   ON_BOOT_SERVICE_FILE_NAME=$(create_on_boot_service_file)
 
   #  creates a regular "systemd service" in a local user home dir
-  systemctl --user link "$SERVICE_DIR/$ON_BOOT_SERVICE_FILE_NAME"
-  systemctl --user enable "$ON_BOOT_SERVICE_FILE_NAME"
+  systemctl_run link "$SERVICE_DIR/$ON_BOOT_SERVICE_FILE_NAME"
+  systemctl_run enable "$ON_BOOT_SERVICE_FILE_NAME"
 
   #  apply changes to current session
-  systemctl --user daemon-reload
+  systemctl_run daemon-reload
 }
 # converts on-external-display-connection.rules.template into 50-on-external-display-connection.rules
 get_file_name_from_template() {
@@ -172,11 +176,11 @@ remove() {
   # systemd services
   local UDEV_SERVICE_FILE_NAME
   UDEV_SERVICE_FILE_NAME=$(get_service_file_name)
-  systemctl --user disable "$UDEV_SERVICE_FILE_NAME"
+  systemctl_run disable "$UDEV_SERVICE_FILE_NAME"
 
   local ON_BOOT_SERVICE_FILE_NAME
   ON_BOOT_SERVICE_FILE_NAME=$(get_on_boot_service_file_name)
-  systemctl --user disable "$ON_BOOT_SERVICE_FILE_NAME"
+  systemctl_run disable "$ON_BOOT_SERVICE_FILE_NAME"
 
   rm -f "$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME" "$SERVICE_DIR/$ON_BOOT_SERVICE_FILE_NAME"
 
