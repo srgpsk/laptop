@@ -136,7 +136,7 @@ create_udev_service_file() {
   UDEV_SERVICE_FILE_NAME=$(get_service_file_name)
 
   # replace placeholder with actual path and create the file
-  sed -e "s|{{ script_path }}|$SCRIPT_INSTALL_DIR/$(get_script_file_name)|" "$SERVICE_DIR/$SERVICE_TEMPLATE" >"$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME"
+  sed -e "s|{{ script_path }}|$SCRIPT_INSTALL_DIR/$(get_script_file_name)|" -e '/\[Install\]/,$ d' "$SERVICE_DIR/$SERVICE_TEMPLATE" >"$SERVICE_DIR/$UDEV_SERVICE_FILE_NAME"
 
   echo "$UDEV_SERVICE_FILE_NAME"
 }
